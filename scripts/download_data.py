@@ -5,10 +5,14 @@ import pandas as pd
 
 def main():
     parser = argparse.ArgumentParser()
+    
+    project_root = Path(__file__).resolve().parent.parent
+    default_path = project_root / "data" / "raw"
+
     parser.add_argument("--tickers", nargs="+", required=True)
     parser.add_argument("--period", default="max")
     parser.add_argument("--interval", default="1d")
-    parser.add_argument("--path", type=Path, default="data")
+    parser.add_argument("--path", type=Path, default=default_path)
     parser.add_argument("--start", default=None)
     parser.add_argument("--end", default=None)
     args = parser.parse_args()
