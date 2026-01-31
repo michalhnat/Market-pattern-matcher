@@ -3,7 +3,9 @@ name = "market-patter-match"
 version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "yfinance>=1.1.0",
+]
 
 [tool.ruff]
 line-length = 100
