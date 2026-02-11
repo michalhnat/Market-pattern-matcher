@@ -29,10 +29,6 @@ class IndexBuilder:
         return torch.device(self.config.device)
 
     def build_index(self, model_path: Path = None):
-        """
-        Builds a FAISS index from the dataset using the specified model checkpoint.
-        """
-        # 1. Resolve paths
         ckpt_path = model_path or self.config.model_path
         data_path = self.config.data_dir / "data.npy"
         meta_csv_path = self.config.data_dir / "metadata.csv"
@@ -41,12 +37,13 @@ class IndexBuilder:
             raise FileNotFoundError(f"Model checkpoint not found at {ckpt_path}")
         if not data_path.exists():
             raise FileNotFoundError(f"Data file not found at {data_path}")
-
-        # 2. Load Model
         logger.info(f"Loading model from {ckpt_path}...")
         checkpoint = torch.load(ckpt_path, map_location=self.device)
         
-        # Load config from checkpoint if available to ensure architecture matches
+        logger.info(f"Loading model from {ckpt_path}...")
+        checkpoint = torch.load(ckpt_path, map_location=self.device)
+        
+>>>>>>> test
         saved_config = checkpoint.get("config", {})
         window_size = saved_config.get("window_size", self.config.window_size)
         embedding_dim = saved_config.get("embedding_dim", self.config.embedding_dim)
@@ -55,56 +52,41 @@ class IndexBuilder:
         model = MarketAutoencoder(
             input_len=window_size, 
             embedding_dim=embedding_dim
-            # Note: Model constructor needs to support in_channels if we made it dynamic,
-            # but current model.py hardcodes it in __init__? 
-            # Wait, our model.py currently hardcodes 5 in conv1d but accepts input_len/embedding_dim.
-            # Let's check model.py again. 
-            # The current model.py __init__ signature: (input_len=30, embedding_dim=32)
-            # It DOES NOT accept in_channels yet. It's hardcoded to 5 inside. 
-            # That's fine for now as long as data is 5-channel.
         ).to(self.device)
         
         model.load_state_dict(checkpoint["model_state_dict"])
         model.eval()
-
-        # 3. Load Data
-        logger.info(f"Loading data from {data_path}...")
-        dataset = MarketDataset(str(data_path))
-        dataloader = DataLoader(dataset, batch_size=256, shuffle=False)
-
-        # 4. Extract Embeddings
         logger.info("Extracting embeddings...")
         embeddings = []
         with torch.no_grad():
             for batch in dataloader:
                 batch = batch.to(self.device)
-                # Model returns (z, out). We want z.
                 z, _ = model(batch)
                 embeddings.append(z.cpu().numpy())
 
-        # Concatenate and convert to float32 (required by FAISS)
+                z, _ = model(batch)
+                embeddings.append(z.cpu().numpy())
+
         embeddings_matrix = np.concatenate(embeddings, axis=0).astype(np.float32)
         num_vectors, dim = embeddings_matrix.shape
         
         if dim != embedding_dim:
             logger.warning(f"Extracted embedding dim {dim} != config {embedding_dim}")
-
-        # 5. Build FAISS Index
         logger.info(f"Building FAISS index for {num_vectors} vectors of dim {dim}...")
         index = faiss.IndexFlatL2(dim)
         index.add(embeddings_matrix)
 
-        # 6. Save Artifacts
         index_path = self.config.index_path
         index_meta_path = self.config.index_meta_path
         
-        # Ensure directory exists
+        index_path = self.config.index_path
+        index_meta_path = self.config.index_meta_path
+        
         index_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Saving index to {index_path}...")
         faiss.write_index(index, str(index_path))
 
-        # Save metadata mapping
         meta_info = {
             "ticker": self.config.ticker,
             "window_size": window_size,

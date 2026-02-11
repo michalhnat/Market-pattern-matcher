@@ -40,13 +40,17 @@ class Config:
         return PROJECT_ROOT / "models"
 
     @property
+    def faiss_dir(self) -> Path:
+        return PROJECT_ROOT / "faiss"
+
+    @property
     def model_path(self) -> Path:
         return self.models_dir / f"{self.ticker}_w{self.window_size}_e{self.embedding_dim}.pt"
 
     @property
     def index_path(self) -> Path:
-        return self.models_dir / f"{self.ticker}_w{self.window_size}.faiss"
+        return self.faiss_dir / f"{self.ticker}_w{self.window_size}.faiss"
 
     @property
     def index_meta_path(self) -> Path:
-        return self.models_dir / f"{self.ticker}_w{self.window_size}.index_meta.json"
+        return self.faiss_dir / f"{self.ticker}_w{self.window_size}.index_meta.json"
