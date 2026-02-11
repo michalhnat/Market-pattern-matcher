@@ -3,7 +3,6 @@ import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import datetime
-import sys
 from pathlib import Path
 
 import pandas as pd
@@ -11,17 +10,15 @@ import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from config import Config
 from src.core.search import MatchResult, PatternSearcher
 
 st.set_page_config(layout="wide", page_title="Market Pattern Matcher")
 st.title("Market Pattern Matcher")
 
-RAW_DATA_PATH = "data/raw/SPY.csv"
-METADATA_PATH = "data/preprocessed/SPY_minmax_30/metadata.csv"
-INDEX_PATH = "faiss/SPY_w30.faiss"
+RAW_DATA_PATH = Path("data/raw/SPY.csv")
+METADATA_PATH = Path("data/preprocessed/SPY_minmax_30/metadata.csv")
+INDEX_PATH = Path("faiss/SPY_w30.faiss")
 
 
 def get_raw_window_with_margins(
@@ -35,15 +32,20 @@ def get_raw_window_with_margins(
     start_date = pd.to_datetime(meta["start_date"])
     end_date = pd.to_datetime(meta["end_date"])
 
-    margin_start = start_date - pd.Timedelta(days=left_margin_days)
-    margin_end = end_date + pd.Timedelta(days=right_margin_days)
+    try:
+        start_idx = raw_df.index.get_loc(start_date)
+        end_idx = raw_df.index.get_loc(end_date)
+    except KeyError:
+        start_idx = raw_df.index.searchsorted(start_date)
+        end_idx = raw_df.index.searchsorted(end_date)
 
-    window_data = raw_df[(raw_df.index >= margin_start) & (raw_df.index <= margin_end)]
+    margin_start_idx = max(0, start_idx - left_margin_days)
+    margin_end_idx = min(len(raw_df) - 1, end_idx + right_margin_days)
 
-    main_start_idx = len(raw_df[(raw_df.index >= margin_start) & (raw_df.index < start_date)])
-    main_end_idx = main_start_idx + len(
-        raw_df[(raw_df.index >= start_date) & (raw_df.index <= end_date)]
-    )
+    window_data = raw_df.iloc[margin_start_idx : margin_end_idx + 1]
+
+    main_start_idx = start_idx - margin_start_idx
+    main_end_idx = main_start_idx + (end_idx - start_idx) + 1
 
     return window_data, main_start_idx, main_end_idx
 
@@ -258,8 +260,8 @@ with st.sidebar:
     num_results = st.slider("Number of similar patterns", 1, 10, 5)
     st.divider()
     st.subheader("Context Margins")
-    left_margin = st.slider("Left margin (days)", 0, 30, 5)
-    right_margin = st.slider("Right margin (days)", 0, 30, 5)
+    left_margin = st.slider("Left margin (trading days)", 0, 30, 5)
+    right_margin = st.slider("Right margin (trading days)", 0, 30, 5)
 
 raw_df = pd.read_csv(RAW_DATA_PATH, index_col=0, parse_dates=True)
 metadata_df = pd.read_csv(METADATA_PATH)
