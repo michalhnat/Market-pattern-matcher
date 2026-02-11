@@ -12,6 +12,8 @@ dependencies = [
     "streamlit>=1.54.0",
     "matplotlib>=3.10.8",
     "plotly>=6.5.2",
+    "fastapi[standard]>=0.128.8",
+    "uvicorn>=0.40.0",
 ]
 
 [tool.ruff]
