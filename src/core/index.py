@@ -37,25 +37,28 @@ class IndexBuilder:
             raise FileNotFoundError(f"Model checkpoint not found at {ckpt_path}")
         if not data_path.exists():
             raise FileNotFoundError(f"Data file not found at {data_path}")
+
         logger.info(f"Loading model from {ckpt_path}...")
         checkpoint = torch.load(ckpt_path, map_location=self.device)
-        
-        logger.info(f"Loading model from {ckpt_path}...")
-        checkpoint = torch.load(ckpt_path, map_location=self.device)
-        
->>>>>>> test
+
         saved_config = checkpoint.get("config", {})
         window_size = saved_config.get("window_size", self.config.window_size)
         embedding_dim = saved_config.get("embedding_dim", self.config.embedding_dim)
         in_channels = saved_config.get("in_channels", self.config.in_channels)
 
-        model = MarketAutoencoder(
-            input_len=window_size, 
-            embedding_dim=embedding_dim
-        ).to(self.device)
-        
+        model = MarketAutoencoder(input_len=window_size, embedding_dim=embedding_dim).to(
+            self.device
+        )
+
         model.load_state_dict(checkpoint["model_state_dict"])
         model.eval()
+
+        logger.info("Loading dataset...")
+        dataset = MarketDataset(data_path, meta_csv_path)
+        dataloader = DataLoader(
+            dataset, batch_size=self.config.batch_size, shuffle=False, num_workers=0
+        )
+
         logger.info("Extracting embeddings...")
         embeddings = []
         with torch.no_grad():
@@ -64,12 +67,9 @@ class IndexBuilder:
                 z, _ = model(batch)
                 embeddings.append(z.cpu().numpy())
 
-                z, _ = model(batch)
-                embeddings.append(z.cpu().numpy())
-
         embeddings_matrix = np.concatenate(embeddings, axis=0).astype(np.float32)
         num_vectors, dim = embeddings_matrix.shape
-        
+
         if dim != embedding_dim:
             logger.warning(f"Extracted embedding dim {dim} != config {embedding_dim}")
         logger.info(f"Building FAISS index for {num_vectors} vectors of dim {dim}...")
@@ -78,10 +78,6 @@ class IndexBuilder:
 
         index_path = self.config.index_path
         index_meta_path = self.config.index_meta_path
-        
-        index_path = self.config.index_path
-        index_meta_path = self.config.index_meta_path
-        
         index_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Saving index to {index_path}...")
@@ -96,9 +92,9 @@ class IndexBuilder:
             "data_path": str(data_path),
             "metadata_csv_path": str(meta_csv_path),
         }
-        
+
         with open(index_meta_path, "w") as f:
             json.dump(meta_info, f, indent=2)
-            
+
         logger.info(f"Saved index metadata to {index_meta_path}")
         return index_path
