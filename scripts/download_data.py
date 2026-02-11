@@ -1,11 +1,13 @@
 import argparse
 from pathlib import Path
-import yfinance as yf
-import pandas as pd
 
-def main():
+import pandas as pd
+import yfinance as yf
+
+
+def main() -> None:
     parser = argparse.ArgumentParser()
-    
+
     project_root = Path(__file__).resolve().parent.parent
     default_path = project_root / "data" / "raw"
 
@@ -36,19 +38,19 @@ def main():
 
     for ticker in args.tickers:
         ticker_upper = ticker.upper()
-        
+
         try:
             if isinstance(data.columns, pd.MultiIndex):
-                 if ticker_upper in data.columns.get_level_values(0):
-                     ticker_data = data[ticker_upper]
-                 else:
-                     print(f"Warning: No data found for {ticker}")
-                     continue
+                if ticker_upper in data.columns.get_level_values(0):
+                    ticker_data = data[ticker_upper]
+                else:
+                    print(f"Warning: No data found for {ticker}")
+                    continue
             else:
-                 ticker_data = data
+                ticker_data = data
         except Exception as e:
-             print(f"Error processing {ticker}: {e}")
-             continue
+            print(f"Error processing {ticker}: {e}")
+            continue
 
         if not ticker_data.empty:
             file_path = args.path / f"{ticker_upper}.csv"
@@ -56,6 +58,7 @@ def main():
             print(f"Saved {ticker} to {file_path}")
         else:
             print(f"Warning: Data for {ticker} is empty")
+
 
 if __name__ == "__main__":
     main()

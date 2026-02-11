@@ -25,10 +25,10 @@ class MarketAutoencoder(nn.Module):
             nn.Linear(embedding_dim, flattened_size),
             nn.ReLU(),
             nn.Unflatten(1, (64, downsampled)),
-            nn.Upsample(size=input_len // 2, mode='nearest'),
+            nn.Upsample(size=input_len // 2, mode="nearest"),
             nn.Conv1d(64, 32, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Upsample(size=input_len, mode='nearest'),
+            nn.Upsample(size=input_len, mode="nearest"),
             nn.Conv1d(32, 5, kernel_size=3, padding=1),
         )
 
@@ -37,7 +37,7 @@ class MarketAutoencoder(nn.Module):
         out = self.decoder(z)
         return z, out
 
-    def get_embedding(self, x):
+    def get_embedding(self, x: torch.Tensor) -> torch.Tensor:
         with torch.no_grad():
             return self.encoder(x)
 

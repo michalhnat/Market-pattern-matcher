@@ -2,11 +2,11 @@ import json
 import logging
 from pathlib import Path
 
-import faiss
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+import faiss
 from config import Config
 from src.core.dataset import MarketDataset
 from src.core.model import MarketAutoencoder
@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 class IndexBuilder:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config) -> None:
         self.config = config
         self.device = self._resolve_device()
 
-    def _resolve_device(self):
+    def _resolve_device(self) -> torch.device:
         if self.config.device == "auto":
             if torch.backends.mps.is_available():
                 return torch.device("mps")
@@ -28,7 +28,7 @@ class IndexBuilder:
             return torch.device("cpu")
         return torch.device(self.config.device)
 
-    def build_index(self, model_path: Path = None):
+    def build_index(self, model_path: Path | None = None) -> Path:
         ckpt_path = model_path or self.config.model_path
         data_path = self.config.data_dir / "data.npy"
         meta_csv_path = self.config.data_dir / "metadata.csv"
@@ -44,7 +44,6 @@ class IndexBuilder:
         saved_config = checkpoint.get("config", {})
         window_size = saved_config.get("window_size", self.config.window_size)
         embedding_dim = saved_config.get("embedding_dim", self.config.embedding_dim)
-        in_channels = saved_config.get("in_channels", self.config.in_channels)
 
         model = MarketAutoencoder(input_len=window_size, embedding_dim=embedding_dim).to(
             self.device
