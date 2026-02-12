@@ -18,7 +18,7 @@ API_ADDRESS = os.getenv("API_ADDRESS", "http://localhost:8000")
 
 def search_request(
     ticker: str, window_size: int, date: datetime.date, top_k: int
-) -> list[dict]:
+) -> dict:
     url = f"{API_ADDRESS}/search"
     params = {
         "ticker": ticker,
@@ -31,23 +31,22 @@ def search_request(
     return response.json()
 
 
-def get_raw_window_with_margins(
-    window_idx: int,
-    metadata_df: pd.DataFrame,
+def get_window_with_margins(
+    start_date: str,
+    end_date: str,
     raw_df: pd.DataFrame,
     left_margin_days: int = 0,
     right_margin_days: int = 0,
 ) -> tuple[pd.DataFrame, int, int]:
-    meta = metadata_df.iloc[window_idx]
-    start_date = pd.to_datetime(meta["start_date"])
-    end_date = pd.to_datetime(meta["end_date"])
+    start = pd.to_datetime(start_date)
+    end = pd.to_datetime(end_date)
 
     try:
-        start_idx = raw_df.index.get_loc(start_date)
-        end_idx = raw_df.index.get_loc(end_date)
+        start_idx = raw_df.index.get_loc(start)
+        end_idx = raw_df.index.get_loc(end)
     except KeyError:
-        start_idx = raw_df.index.searchsorted(start_date)
-        end_idx = raw_df.index.searchsorted(end_date)
+        start_idx = raw_df.index.searchsorted(start)
+        end_idx = raw_df.index.searchsorted(end)
 
     margin_start_idx = max(0, start_idx - left_margin_days)
     margin_end_idx = min(len(raw_df) - 1, end_idx + right_margin_days)
@@ -60,33 +59,21 @@ def get_raw_window_with_margins(
     return window_data, main_start_idx, main_end_idx
 
 
-def find_query_index(start_date: datetime.date, metadata_df: pd.DataFrame) -> int:
-    target_date = pd.to_datetime(start_date)
-    dates = pd.to_datetime(metadata_df["start_date"])
-    return int((dates - target_date).abs().idxmin())
-
-
 def create_chart(
-    query_idx: int,
-    results: list[dict],
-    metadata_df: pd.DataFrame,
+    response: dict,
     raw_df: pd.DataFrame,
     left_margin: int,
     right_margin: int,
 ) -> None:
-    if query_idx + 1 >= len(metadata_df):
-        st.error("No future data available for this date")
-        st.stop()
-
     colors = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6"]
 
-    next_idx = query_idx + 1
-    next_window, main_start, main_end = get_raw_window_with_margins(
-        next_idx, metadata_df, raw_df, left_margin, right_margin
+    # Query next window
+    next_dates = response["next_dates"]
+    next_window, main_start, main_end = get_window_with_margins(
+        next_dates["start_date"], next_dates["end_date"], raw_df, left_margin, right_margin
     )
-    next_info = metadata_df.iloc[next_idx]
 
-    st.subheader(f"Query Next: {next_info['start_date']}")
+    st.subheader(f"Query Next: {next_dates['start_date']}")
     fig_query = make_subplots(
         rows=2,
         cols=1,
@@ -166,20 +153,21 @@ def create_chart(
     fig_query.update_yaxes(title_text="Volume", row=2, col=1)
     st.plotly_chart(fig_query, use_container_width=True)
 
+    # Historical matches
     st.subheader("Similar Historical Patterns")
-    for i, res in enumerate(results):
-        match_next_idx = res["window_index"] + 1
-        if match_next_idx >= len(metadata_df):
-            continue
-
-        match_window, match_start, match_end = get_raw_window_with_margins(
-            match_next_idx, metadata_df, raw_df, left_margin, right_margin
+    for i, match in enumerate(response["matches"]):
+        match_next_dates = match["next_dates"]
+        match_window, match_start, match_end = get_window_with_margins(
+            match_next_dates["start_date"],
+            match_next_dates["end_date"],
+            raw_df,
+            left_margin,
+            right_margin,
         )
-        match_info = metadata_df.iloc[match_next_idx]
 
         st.write(
-            f"**Rank {res['rank']}**: {match_info['start_date']} "
-            f"(distance: {res['distance']:.2f})"
+            f"**Rank {match['rank']}**: {match['pattern_dates']['start_date']} "
+            f"(distance: {match['distance']:.2f})"
         )
 
         fig_match = make_subplots(
@@ -272,7 +260,7 @@ with st.sidebar:
 if st.sidebar.button("Search", type="primary", use_container_width=True):
     with st.spinner("Searching for similar patterns..."):
         try:
-            results = search_request(
+            response = search_request(
                 ticker="SPY",
                 window_size=30,
                 date=start_date,
@@ -282,19 +270,14 @@ if st.sidebar.button("Search", type="primary", use_container_width=True):
             st.error(f"Search failed: {e}")
             st.stop()
 
-    if not results:
+    if not response.get("matches"):
         st.warning("No similar patterns found.")
         st.stop()
 
-    metadata_path = results[0]["metadata_path"]
-    raw_data_path = results[0]["raw_data_path"]
-
     try:
-        metadata_df = pd.read_csv(metadata_path)
-        raw_df = pd.read_csv(raw_data_path, index_col=0, parse_dates=True)
+        raw_df = pd.read_csv(response["raw_data_path"], index_col=0, parse_dates=True)
     except Exception as e:
         st.error(f"Failed to load data: {e}")
         st.stop()
 
-    query_idx = find_query_index(start_date, metadata_df)
-    create_chart(query_idx, results, metadata_df, raw_df, left_margin, right_margin)
+    create_chart(response, raw_df, left_margin, right_margin)

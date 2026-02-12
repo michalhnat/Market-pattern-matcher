@@ -15,15 +15,17 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class WindowDates:
+    start_date: str
+    end_date: str
+
+
+@dataclass
 class MatchResult:
     rank: int
     distance: float
-    window_index: int
-    start_date: str
-    end_date: str
-    ticker: str
-    raw_data_path: str
-    metadata_path: str
+    pattern_dates: WindowDates
+    next_dates: WindowDates
 
 
 class PatternSearcher:
@@ -128,17 +130,33 @@ class PatternSearcher:
             if rank > top_k:
                 break
 
+            # Get pattern window
             meta_row = self.metadata_df.iloc[idx]
+            pattern_dates = WindowDates(
+                start_date=str(meta_row["start_date"]),
+                end_date=str(meta_row["end_date"])
+            )
+
+            # Get next window (what happened after the pattern)
+            next_idx = idx + 1
+            if next_idx < len(self.metadata_df):
+                next_row = self.metadata_df.iloc[next_idx]
+                next_dates = WindowDates(
+                    start_date=str(next_row["start_date"]),
+                    end_date=str(next_row["end_date"])
+                )
+            else:
+                # No next window available
+                next_dates = WindowDates(
+                    start_date=str(meta_row["end_date"]),
+                    end_date=str(meta_row["end_date"])
+                )
 
             results.append(MatchResult(
                 rank=rank,
                 distance=float(dist),
-                window_index=int(idx),
-                start_date=str(meta_row["start_date"]),
-                end_date=str(meta_row["end_date"]),
-                ticker=str(meta_row["ticker"]),
-                metadata_path=str(meta_row["metadata_path"]),
-                raw_data_path=str(meta_row["raw_data_path"])
+                pattern_dates=pattern_dates,
+                next_dates=next_dates
             ))
             rank += 1
 
