@@ -1,14 +1,16 @@
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
 from config import Config
-from src.core.model import MarketAutoencoder
 from src.core.dataset import MarketDataset
+from src.core.model import MarketAutoencoder
 
 
 class Trainer:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config) -> None:
         self.config = config
         self.best_val_loss = float("inf")
         self.model = None
@@ -18,7 +20,7 @@ class Trainer:
         self.val_loader = None
         self.test_loader = None
 
-    def _resolve_device(self):
+    def _resolve_device(self) -> torch.device:
         if self.config.device == "auto":
             if torch.backends.mps.is_available():
                 return torch.device("mps")
@@ -27,19 +29,19 @@ class Trainer:
             return torch.device("cpu")
         return torch.device(self.config.device)
 
-    def _build_model(self):
+    def _build_model(self) -> None:
         device = self._resolve_device()
         self.model = MarketAutoencoder(
             self.config.window_size, self.config.embedding_dim
         ).to(device)
 
-    def _build_optimizer(self):
+    def _build_optimizer(self) -> None:
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.config.learning_rate)
 
-    def _build_loss(self):
+    def _build_loss(self) -> None:
         self.criterion = nn.MSELoss()
 
-    def _build_dataloaders(self):
+    def _build_dataloaders(self) -> None:
         data_path = self.config.data_dir / "data.npy"
         dataset = MarketDataset(str(data_path))
 
@@ -61,7 +63,7 @@ class Trainer:
             test_ds, batch_size=self.config.batch_size, shuffle=False
         )
 
-    def _train_one_epoch(self):
+    def _train_one_epoch(self) -> float:
         device = self._resolve_device()
         self.model.train()
         total_loss = 0.0
@@ -75,7 +77,7 @@ class Trainer:
             total_loss += loss.item()
         return total_loss / len(self.train_loader)
 
-    def _validate_one_epoch(self):
+    def _validate_one_epoch(self) -> float:
         device = self._resolve_device()
         self.model.eval()
         total_loss = 0.0
@@ -87,7 +89,7 @@ class Trainer:
                 total_loss += loss.item()
         return total_loss / len(self.val_loader)
 
-    def _test_one_epoch(self):
+    def _test_one_epoch(self) -> float:
         device = self._resolve_device()
         self.model.eval()
         total_loss = 0.0
@@ -99,7 +101,7 @@ class Trainer:
                 total_loss += loss.item()
         return total_loss / len(self.test_loader)
 
-    def save(self, path=None):
+    def save(self, path: Path | None = None) -> None:
         save_path = path or self.config.model_path
         save_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({
@@ -113,12 +115,12 @@ class Trainer:
         }, save_path)
         print(f"Model saved to {save_path}")
 
-    def load(self, path=None):
+    def load(self, path: Path | None = None) -> None:
         load_path = path or self.config.model_path
         checkpoint = torch.load(load_path, weights_only=False)
         self.model.load_state_dict(checkpoint["model_state_dict"])
 
-    def run_training(self):
+    def run_training(self) -> None:
         self._build_model()
         self._build_optimizer()
         self._build_loss()
@@ -145,11 +147,14 @@ class Trainer:
                 patience_counter += 1
 
             marker = " *" if is_best else ""
-            print(f"Epoch {epoch+1:3d}/{self.config.epochs} | "
+            print(f"Epoch {epoch + 1:3d}/{self.config.epochs} | "
                   f"train_loss={train_loss:.6f} | val_loss={val_loss:.6f}{marker}")
 
             if patience_counter >= self.config.early_stop_patience:
-                print(f"Early stopping at epoch {epoch+1} (patience={self.config.early_stop_patience})")
+                print(
+                    f"Early stopping at epoch {epoch + 1} "
+                    f"(patience={self.config.early_stop_patience})"
+                )
                 break
 
         # Final test
@@ -158,7 +163,7 @@ class Trainer:
         print("-" * 60)
         print(f"Test loss: {test_loss:.6f}")
 
-    def run_validation(self):
+    def run_validation(self) -> None:
         self._build_model()
         self._build_loss()
         self._build_dataloaders()
@@ -166,7 +171,7 @@ class Trainer:
         val_loss = self._validate_one_epoch()
         print(f"Validation loss: {val_loss:.6f}")
 
-    def run_test(self):
+    def run_test(self) -> None:
         self._build_model()
         self._build_loss()
         self._build_dataloaders()
