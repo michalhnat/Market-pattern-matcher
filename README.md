@@ -21,8 +21,7 @@ Search engine uses an autoencoder for feature extraction and FAISS for vector se
 ```bash
 docker-compose up --build
 ```
-5. Access:
-   - http://localhost:8501
+5. Access fronted on: http://localhost:8501
 
 ### Development
 1. Sync dependencies:
@@ -39,3 +38,10 @@ uvicorn src.api.app:app --host 0.0.0.0 --port 8000
 ```bash
 uv run streamlit run ui/app.py --server.port 8501
 ```
+## UI
+<img width="1512" height="857" alt="image" src="https://github.com/user-attachments/assets/d04647ca-b153-4e33-bb59-178d1e6ef6ab" />
+
+## TODO
+   - Better timeframes managment - currently data is gathered using yfinance, therfore for smaller timeframe intervals - shorted periods are avalivable
+   - Precise time choosing for smaller intervals
+   - CI
