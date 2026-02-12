@@ -9,6 +9,52 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-market_data}
     volumes:
       - timescale_data:/var/lib/postgresql/data
+    networks:
+      - market-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_HOST: timescaledb
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-market_data}
+    depends_on:
+      - timescaledb
+    volumes:
+      - ./models:/app/models
+      - ./faiss:/app/faiss
+      - ./data:/app/data
+    networks:
+      - market-network
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    ports:
+      - "8501:8501"
+    environment:
+      API_ADDRESS: http://api:8000
+      POSTGRES_HOST: timescaledb
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-market_data}
+    depends_on:
+      - api
+      - timescaledb
+    networks:
+      - market-network
 
 volumes:
   timescale_data:
+
+networks:
+  market-network:
+    driver: bridge

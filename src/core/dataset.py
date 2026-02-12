@@ -11,4 +11,5 @@ class MarketDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, index: int) -> torch.Tensor:
-        return torch.from_numpy(self.data[index])
+        sample = torch.from_numpy(self.data[index]).transpose(0, 1)
+        return sample

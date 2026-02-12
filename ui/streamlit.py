@@ -30,6 +30,38 @@ def search_request(
     return response.json()
 
 
+def add_ticker_request(ticker: str, intervals: list[str]) -> dict:
+    url = f"{API_ADDRESS}/tickers/add"
+    data = {
+        "ticker": ticker,
+        "intervals": intervals,
+        "window_size": 30,
+        "epochs": 20,
+        "batch_size": 64,
+        "embedding_dim": 32
+    }
+    response = requests.post(url, json=data)
+    response.raise_for_status()
+    return response.json()
+
+
+def get_job_status(job_id: str) -> dict:
+    url = f"{API_ADDRESS}/tickers/status/{job_id}"
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.json()
+
+
+@st.cache_data(ttl=30)
+def fetch_available_tickers() -> list[dict]:
+    try:
+        response = requests.get(f"{API_ADDRESS}/tickers/available")
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return []
+
+
 def get_window_with_margins(
     start_date: str,
     end_date: str,
@@ -257,7 +289,19 @@ def create_chart(response: dict, raw_df: pd.DataFrame, left_margin: int, right_m
         st.plotly_chart(fig_match, use_container_width=True)
 
 
+available = fetch_available_tickers()
+
 with st.sidebar:
+    if available:
+        st.header("Available Data")
+        by_ticker: dict[str, list[str]] = {}
+        for item in available:
+            by_ticker.setdefault(item["ticker"], []).append(item["interval"])
+        for t, intervals_list in sorted(by_ticker.items()):
+            st.text(f"{t}: {', '.join(sorted(intervals_list))}")
+        st.divider()
+
+    st.header("Search Patterns")
     ticker = st.text_input("Ticker", value="SPY").upper()
     interval = st.selectbox(
         "Timeframe",
@@ -272,7 +316,43 @@ with st.sidebar:
     left_margin = st.slider("Left margin (trading days)", 0, 30, 5)
     right_margin = st.slider("Right margin (trading days)", 0, 30, 5)
 
-if st.sidebar.button("Search", type="primary", use_container_width=True):
+    if st.button("Search", type="primary", use_container_width=True):
+        st.session_state["run_search"] = True
+
+    st.divider()
+    st.header("Add Ticker")
+    new_ticker = st.text_input("Add new ticker", value="").upper()
+    add_intervals = st.multiselect(
+        "Select intervals",
+        options=["1d", "1h", "30m", "15m", "5m"],
+        default=["1d"]
+    )
+
+    if st.button("Add Ticker", use_container_width=True, disabled=not new_ticker):
+        with st.spinner(f"Adding {new_ticker}..."):
+            try:
+                result = add_ticker_request(new_ticker, add_intervals)
+                st.success(f"{result['message']}")
+                st.info(f"Job ID: {result['job_id']}")
+                st.session_state["job_id"] = result["job_id"]
+            except Exception as e:
+                st.error(f"Failed: {e}")
+
+    if st.session_state.get("job_id"):
+        if st.button("Check Status", use_container_width=True):
+            try:
+                status = get_job_status(st.session_state["job_id"])
+                st.write(f"**Status:** {status['status']}")
+                if status.get("progress"):
+                    for p in status["progress"]:
+                        st.text(p)
+            except Exception as e:
+                st.error(f"Failed: {e}")
+
+
+if st.session_state.get("run_search"):
+    st.session_state["run_search"] = False
+
     with st.spinner("Searching for similar patterns..."):
         try:
             response = search_request(
