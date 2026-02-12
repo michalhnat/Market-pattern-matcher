@@ -8,6 +8,8 @@ class MatchResult(BaseModel):
     start_date: str = Field(..., description="Start date of the matched window")
     end_date: str = Field(..., description="End date of the matched window")
     ticker: str = Field(..., description="Ticker symbol associated with the matched window")
+    metadata_path: str = Field(..., description="Path to the metadata CSV for the matched window")
+    raw_data_path: str = Field(..., description="Path to the raw data for the matched window")
 
 
 class IndexMetadata(BaseModel):

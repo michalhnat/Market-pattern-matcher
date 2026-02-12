@@ -22,6 +22,8 @@ class MatchResult:
     start_date: str
     end_date: str
     ticker: str
+    raw_data_path: str
+    metadata_path: str
 
 
 class PatternSearcher:
@@ -74,7 +76,9 @@ class PatternSearcher:
         query_index: int | None = None,
         query_date: str | None = None,
         top_k: int = 5,
-        include_self: bool = False
+        include_self: bool = False,
+        metadata_path: str | None = None,
+        raw_data_path: str | None = None
     ) -> list[MatchResult]:
 
         if self.index is None:
@@ -132,7 +136,9 @@ class PatternSearcher:
                 window_index=int(idx),
                 start_date=str(meta_row["start_date"]),
                 end_date=str(meta_row["end_date"]),
-                ticker=str(meta_row["ticker"])
+                ticker=str(meta_row["ticker"]),
+                metadata_path=str(meta_row["metadata_path"]),
+                raw_data_path=str(meta_row["raw_data_path"])
             ))
             rank += 1
 
