@@ -15,6 +15,9 @@ Search engine uses an autoencoder for feature extraction and FAISS for vector se
 
 ## Usage
 
+### Environment Variables
+Create a `.env` file in the root directory of the project and add the environment variables as shown in the `.env.example` file.
+
 ### Docker
 1. Clone the repository
 2. Build and run using docker-compose:
