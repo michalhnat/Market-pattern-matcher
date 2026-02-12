@@ -162,7 +162,7 @@ class PatternSearcher:
 
     def _encode(self, window_np: np.ndarray) -> np.ndarray:
         window_np = np.array(window_np)
-        window_tensor = torch.from_numpy(window_np).unsqueeze(0).to(self.device)
+        window_tensor = torch.from_numpy(window_np).transpose(0, 1).unsqueeze(0).to(self.device)
         with torch.no_grad():
             z, _ = self.model(window_tensor)
         return z.cpu().numpy().astype(np.float32)

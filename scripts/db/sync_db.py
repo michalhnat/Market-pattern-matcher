@@ -11,20 +11,18 @@ logger = logging.getLogger(__name__)
 
 
 def sync_csv(csv_path: Path, ticker: str, interval: str) -> None:
-    """Sync a raw CSV file to the database.
-
-    Args:
-        csv_path: Path to the raw CSV file.
-        ticker: Ticker symbol (e.g. 'AAPL').
-        interval: Timeframe interval (e.g. '1d', '15m').
-    """
     df = pd.read_csv(csv_path, index_col=0, parse_dates=True)
     df.columns = df.columns.str.lower()
+
+    for col in ["open", "high", "low", "close", "volume"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna(subset=["open", "high", "low", "close"])
+
     df = df.reset_index()
     df.rename(columns={df.columns[0]: "timestamp"}, inplace=True)
     df["timestamp"] = pd.to_datetime(df["timestamp"])
 
-    # Handle NaN / None volumes
     df["volume"] = pd.to_numeric(df["volume"], errors="coerce")
     df["volume"] = df["volume"].fillna(0).astype(int)
 
@@ -71,7 +69,6 @@ if __name__ == "__main__":
 
     data_dir = Path("data/raw")
     for csv_file in data_dir.glob("*.csv"):
-        # Parse ticker_interval from filename (e.g. AAPL_1d.csv)
         parts = csv_file.stem.split("_")
         if len(parts) >= 2:
             ticker = parts[0].upper()

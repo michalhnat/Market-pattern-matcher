@@ -8,10 +8,11 @@ import pandas as pd
 import yfinance as yf
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from config import INTERVALS, Config
-from scripts.db.db import get_engine
-from scripts.db.init_db import Base
+from scripts.db.db import get_engine, get_session
+from scripts.db.init_db import Base, MarketData
 from scripts.db.sync_db import sync_csv
 from src.core.index import IndexBuilder
 from src.core.train import Trainer
@@ -46,6 +47,9 @@ def download_ticker_data(ticker: str, interval: str, output_dir: Path) -> Path:
     if df.empty:
         raise ValueError(f"No data for {ticker}")
 
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+
     df = df.reset_index()
     if "Datetime" in df.columns:
         df = df.rename(columns={"Datetime": "Date"})
@@ -64,6 +68,11 @@ def preprocess_ticker_data(
     df = df.rename(columns=str.capitalize)
     df["Date"] = pd.to_datetime(df["Date"])
     df = df.sort_values("Date").reset_index(drop=True)
+
+    for col in ["Open", "High", "Low", "Close", "Volume"]:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    df = df.dropna(subset=["Open", "High", "Low", "Close", "Volume"])
 
     prices = df[["Open", "High", "Low", "Close"]].values
     volumes = df["Volume"].values.reshape(-1, 1)
@@ -150,7 +159,6 @@ def process_single_interval(
 
 
 def process_ticker(job_id: str, ticker: str, request: AddTickerRequest) -> None:
-    """Process ticker sequentially."""
     intervals = request.intervals or ["1d"]
     project_root = Path(__file__).resolve().parent.parent.parent.parent
 
@@ -215,3 +223,19 @@ async def list_jobs() -> list[dict[str, Any]]:
             reverse=True
         )[:10]
     ]
+
+
+@router.get("/available")
+async def get_available_tickers() -> list[dict[str, Any]]:
+    """Get available tickers from database."""
+    session = get_session()
+    try:
+        stmt = (
+            select(MarketData.ticker, MarketData.interval)
+            .distinct()
+            .order_by(MarketData.ticker, MarketData.interval)
+        )
+        result = session.execute(stmt).all()
+        return [{"ticker": row[0], "interval": row[1]} for row in result]
+    finally:
+        session.close()
