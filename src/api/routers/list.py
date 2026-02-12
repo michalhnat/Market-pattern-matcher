@@ -1,19 +1,20 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from src.api.crud import list_indexes
 from src.api.schemas import IndexMetadata
 
 router = APIRouter(
-    prefix="/list",
-    tags=["list"],
+    prefix="/indexes",
+    tags=["indexes"],
     responses={404: {"description": "Not found"}},
 )
 
 
 @router.get("/", response_model=list[IndexMetadata])
-async def search() -> list[IndexMetadata]:
+async def get_indexes() -> list[IndexMetadata]:
     try:
-        results = list_indexes()
-        return results
+        return list_indexes()
     except Exception as e:
-        raise ValueError(f"Search failed: {e}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Failed to list indexes: {e!s}"
+        ) from e
