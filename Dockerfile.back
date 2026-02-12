@@ -1,0 +1,16 @@
+FROM python:3.10-slim
+WORKDIR /backend
+
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+COPY requirements-back.txt ./
+RUN pip install --no-cache-dir -r requirements-back.txt
+
+COPY src ./src
+COPY scripts/ ./scripts
+
+EXPOSE 8000
+
+ENV PYTHONPATH=/app/src
+
+CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]
