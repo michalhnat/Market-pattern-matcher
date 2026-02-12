@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y \
 COPY requirements-ui.txt .
 RUN pip install --no-cache-dir -r requirements-ui.txt
 
-COPY src/ui/ src/ui/
+COPY ui/ ui/
 
 EXPOSE 8501
 
-CMD ["streamlit", "run", "src/ui/streamlit.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "ui/streamlit.py", "--server.port=8501", "--server.address=0.0.0.0"]
