@@ -23,7 +23,7 @@ def search_request(
     params = {
         "ticker": ticker,
         "window_size": window_size,
-        "start_date": date.isoformat(),
+        "start_date": f"{date.isoformat()}T00:00:00",
         "top_k": top_k,
     }
     response = requests.get(url, params=params)
@@ -269,33 +269,32 @@ with st.sidebar:
     left_margin = st.slider("Left margin (trading days)", 0, 30, 5)
     right_margin = st.slider("Right margin (trading days)", 0, 30, 5)
 
-if st.button("Search"):
-    with st.spinner("Searching for similar patterns..."):
-        try:
-            results = search_request(
-                ticker="SPY",
-                window_size=30,
-                date=start_date,
-                top_k=num_results,
-            )
-        except Exception as e:
-            st.error(f"Search failed: {e}")
+    if st.button("Search"):
+        with st.spinner("Searching for similar patterns..."):
+            try:
+                results = search_request(
+                    ticker="SPY",
+                    window_size=30,
+                    date=start_date,
+                    top_k=num_results,
+                )
+            except Exception as e:
+                st.error(f"Search failed: {e}")
+                st.stop()
+
+        if not results:
+            st.warning("No similar patterns found.")
             st.stop()
 
-    if not results:
-        st.warning("No similar patterns found.")
-        st.stop()
+        metadata_path = results[0]["metadata_path"]
+        raw_data_path = results[0]["raw_data_path"]
 
-    # Get paths from first result
-    metadata_path = results[0]["metadata_path"]
-    raw_data_path = results[0]["raw_data_path"]
+        try:
+            metadata_df = pd.read_csv(metadata_path)
+            raw_df = pd.read_csv(raw_data_path, index_col=0, parse_dates=True)
+        except Exception as e:
+            st.error(f"Failed to load data: {e}")
+            st.stop()
 
-    try:
-        metadata_df = pd.read_csv(metadata_path)
-        raw_df = pd.read_csv(raw_data_path, index_col=0, parse_dates=True)
-    except Exception as e:
-        st.error(f"Failed to load data: {e}")
-        st.stop()
-
-    query_idx = find_query_index(start_date, metadata_df)
-    create_chart(query_idx, results, metadata_df, raw_df, left_margin, right_margin)
+        query_idx = find_query_index(start_date, metadata_df)
+        create_chart(query_idx, results, metadata_df, raw_df, left_margin, right_margin)
