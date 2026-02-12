@@ -85,6 +85,7 @@ class IndexBuilder:
 
         meta_info = {
             "ticker": self.config.ticker,
+            "interval": self.config.interval,
             "window_size": window_size,
             "embedding_dim": embedding_dim,
             "num_vectors": num_vectors,

@@ -1,8 +1,16 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent
+
+# Available timeframe intervals and their max yfinance download periods
+INTERVALS = {
+    "5m": "60d",
+    "15m": "60d",
+    "30m": "60d",
+    "1h": "2y",
+    "1d": "max",
+}
 
 
 @dataclass
@@ -11,6 +19,7 @@ class Config:
     window_size: int = 30
     in_channels: int = 5
     data_dir: Path = None
+    interval: str = "1d"
 
     # model
     embedding_dim: int = 32
@@ -45,12 +54,16 @@ class Config:
 
     @property
     def model_path(self) -> Path:
-        return self.models_dir / f"{self.ticker}_w{self.window_size}_e{self.embedding_dim}.pt"
+        name = (
+            f"{self.ticker}_{self.interval}"
+            f"_w{self.window_size}_e{self.embedding_dim}.pt"
+        )
+        return self.models_dir / name
 
     @property
     def index_path(self) -> Path:
-        return self.faiss_dir / f"{self.ticker}_w{self.window_size}.faiss"
+        return self.faiss_dir / f"{self.ticker}_{self.interval}_w{self.window_size}.faiss"
 
     @property
     def index_meta_path(self) -> Path:
-        return self.faiss_dir / f"{self.ticker}_w{self.window_size}.index_meta.json"
+        return self.faiss_dir / f"{self.ticker}_{self.interval}_w{self.window_size}.index_meta.json"
