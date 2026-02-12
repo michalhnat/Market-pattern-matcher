@@ -37,7 +37,7 @@ class MarketAutoencoder(nn.Module):
         out = self.decoder(z)
         return z, out
 
-    def get_embedding(self, x):
+    def get_embedding(self, x: torch.Tensor) -> torch.Tensor:
         with torch.no_grad():
             return self.encoder(x)
 
