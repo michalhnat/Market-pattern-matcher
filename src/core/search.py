@@ -130,14 +130,12 @@ class PatternSearcher:
             if rank > top_k:
                 break
 
-            # Get pattern window
             meta_row = self.metadata_df.iloc[idx]
             pattern_dates = WindowDates(
                 start_date=str(meta_row["start_date"]),
                 end_date=str(meta_row["end_date"])
             )
 
-            # Get next window (what happened after the pattern)
             next_idx = idx + 1
             if next_idx < len(self.metadata_df):
                 next_row = self.metadata_df.iloc[next_idx]
@@ -163,7 +161,7 @@ class PatternSearcher:
         return results
 
     def _encode(self, window_np: np.ndarray) -> np.ndarray:
-        window_np = np.array(window_np)  # Copy to make writable
+        window_np = np.array(window_np)
         window_tensor = torch.from_numpy(window_np).unsqueeze(0).to(self.device)
         with torch.no_grad():
             z, _ = self.model(window_tensor)
