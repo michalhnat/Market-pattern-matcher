@@ -1,13 +1,11 @@
-import os
-
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
 import datetime
+import os
 
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+from db import get_market_data
 from plotly.subplots import make_subplots
 
 st.set_page_config(layout="wide", page_title="Market Pattern Matcher")
@@ -17,11 +15,12 @@ API_ADDRESS = os.getenv("API_ADDRESS", "http://localhost:8000")
 
 
 def search_request(
-    ticker: str, window_size: int, date: datetime.date, top_k: int
+    ticker: str, interval: str, window_size: int, date: datetime.date, top_k: int
 ) -> dict:
     url = f"{API_ADDRESS}/search"
     params = {
         "ticker": ticker,
+        "interval": interval,
         "window_size": window_size,
         "start_date": f"{date.isoformat()}T00:00:00",
         "top_k": top_k,
@@ -59,15 +58,28 @@ def get_window_with_margins(
     return window_data, main_start_idx, main_end_idx
 
 
-def create_chart(
-    response: dict,
-    raw_df: pd.DataFrame,
-    left_margin: int,
-    right_margin: int,
-) -> None:
+def get_data_for_response(
+    ticker: str, interval: str, response: dict, left_margin: int, right_margin: int
+) -> pd.DataFrame:
+    all_dates = []
+    all_dates.extend([response["query_dates"]["start_date"], response["query_dates"]["end_date"]])
+    all_dates.extend([response["next_dates"]["start_date"], response["next_dates"]["end_date"]])
+
+    for match in response["matches"]:
+        all_dates.extend([match["pattern_dates"]["start_date"], match["pattern_dates"]["end_date"]])
+        all_dates.extend([match["next_dates"]["start_date"], match["next_dates"]["end_date"]])
+
+    all_dates = [pd.to_datetime(d) for d in all_dates]
+    margin_buffer = max(left_margin, right_margin) + 5
+    min_date = min(all_dates) - pd.Timedelta(days=margin_buffer)
+    max_date = max(all_dates) + pd.Timedelta(days=margin_buffer)
+
+    return get_market_data(ticker, interval, min_date, max_date)
+
+
+def create_chart(response: dict, raw_df: pd.DataFrame, left_margin: int, right_margin: int) -> None:
     colors = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6"]
 
-    # Query next window
     next_dates = response["next_dates"]
     next_window, main_start, main_end = get_window_with_margins(
         next_dates["start_date"], next_dates["end_date"], raw_df, left_margin, right_margin
@@ -94,7 +106,6 @@ def create_chart(
             close=next_window["Close"],
             showlegend=False,
             opacity=0.4,
-            name="Context",
         ),
         row=1,
         col=1,
@@ -108,7 +119,6 @@ def create_chart(
             low=next_window["Low"].iloc[main_start:main_end],
             close=next_window["Close"].iloc[main_start:main_end],
             showlegend=False,
-            name="Main",
         ),
         row=1,
         col=1,
@@ -153,7 +163,6 @@ def create_chart(
     fig_query.update_yaxes(title_text="Volume", row=2, col=1)
     st.plotly_chart(fig_query, use_container_width=True)
 
-    # Historical matches
     st.subheader("Similar Historical Patterns")
     for i, match in enumerate(response["matches"]):
         match_next_dates = match["next_dates"]
@@ -249,6 +258,12 @@ def create_chart(
 
 
 with st.sidebar:
+    ticker = st.text_input("Ticker", value="SPY").upper()
+    interval = st.selectbox(
+        "Timeframe",
+        options=["1d", "1h", "30m", "15m", "5m"],
+        index=0,
+    )
     start_date = st.date_input("Start date", value=datetime.date(2020, 1, 1))
     st.divider()
     num_results = st.slider("Number of similar patterns", 1, 10, 5)
@@ -261,7 +276,8 @@ if st.sidebar.button("Search", type="primary", use_container_width=True):
     with st.spinner("Searching for similar patterns..."):
         try:
             response = search_request(
-                ticker="SPY",
+                ticker=ticker,
+                interval=interval,
                 window_size=30,
                 date=start_date,
                 top_k=num_results,
@@ -275,9 +291,14 @@ if st.sidebar.button("Search", type="primary", use_container_width=True):
         st.stop()
 
     try:
-        raw_df = pd.read_csv(response["raw_data_path"], index_col=0, parse_dates=True)
+        raw_df = get_data_for_response(
+            ticker, interval, response, left_margin, right_margin
+        )
+        if raw_df.empty:
+            st.error("No data found in database for the requested date range")
+            st.stop()
     except Exception as e:
-        st.error(f"Failed to load data: {e}")
+        st.error(f"Failed to load data from database: {e}")
         st.stop()
 
     create_chart(response, raw_df, left_margin, right_margin)
