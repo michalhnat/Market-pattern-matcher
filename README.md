@@ -1,0 +1,41 @@
+# Market Pattern Matcher
+
+This project allows you to choose given time window and search for similar periods that are available in history for given ticker.
+
+Search engine uses an autoencoder for feature extraction and FAISS for vector search. The project also includes an interactive frontend built with Streamlit.
+
+## Features
+
+- Autoendcoder: custom autoencoder is used to create embeddings.
+- Vector Search: FAISS index for vector search.
+- API: FastAPI backend for handling search requests.
+- TimescaleDB: TimescaleDB for storing historical data.
+- Containerization: Dockerized application for easy deployment.
+- Interactive UI: Streamlit frontend for user interaction.
+
+## Usage
+
+### Docker
+1. Clone the repository
+2. Build and run using docker-compose:
+```bash
+docker-compose up --build
+```
+5. Access:
+   - http://localhost:8501
+
+### Development
+1. Sync dependencies:
+```bash
+uv sync
+```
+
+2. Run API:
+```bash
+uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+```
+
+3. Run UI:
+```bash
+uv run streamlit run ui/app.py --server.port 8501
+```
