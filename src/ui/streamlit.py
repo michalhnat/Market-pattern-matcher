@@ -3,22 +3,32 @@ import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import datetime
-from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
+import requests
 import streamlit as st
 from plotly.subplots import make_subplots
-
-from config import Config
-from src.core.search import MatchResult, PatternSearcher
 
 st.set_page_config(layout="wide", page_title="Market Pattern Matcher")
 st.title("Market Pattern Matcher")
 
-RAW_DATA_PATH = Path("data/raw/SPY.csv")
-METADATA_PATH = Path("data/preprocessed/SPY_minmax_30/metadata.csv")
-INDEX_PATH = Path("faiss/SPY_w30.faiss")
+API_ADDRESS = os.getenv("API_ADDRESS", "http://localhost:8000")
+
+
+def search_request(
+    ticker: str, window_size: int, date: datetime.date, top_k: int
+) -> list[dict]:
+    url = f"{API_ADDRESS}/search"
+    params = {
+        "ticker": ticker,
+        "window_size": window_size,
+        "start_date": date.isoformat(),
+        "top_k": top_k,
+    }
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    return response.json()
 
 
 def get_raw_window_with_margins(
@@ -56,16 +66,9 @@ def find_query_index(start_date: datetime.date, metadata_df: pd.DataFrame) -> in
     return int((dates - target_date).abs().idxmin())
 
 
-def search_patterns(query_idx: int, index_path: str, top_k: int = 5) -> list[MatchResult]:
-    config = Config()
-    searcher = PatternSearcher(config=config)
-    searcher.load_resources(index_path=Path(index_path))
-    return searcher.search(query_index=query_idx, top_k=top_k, include_self=False)
-
-
 def create_chart(
     query_idx: int,
-    results: list[MatchResult],
+    results: list[dict],
     metadata_df: pd.DataFrame,
     raw_df: pd.DataFrame,
     left_margin: int,
@@ -165,7 +168,7 @@ def create_chart(
 
     st.subheader("Similar Historical Patterns")
     for i, res in enumerate(results):
-        match_next_idx = res.window_index + 1
+        match_next_idx = res["window_index"] + 1
         if match_next_idx >= len(metadata_df):
             continue
 
@@ -174,7 +177,10 @@ def create_chart(
         )
         match_info = metadata_df.iloc[match_next_idx]
 
-        st.write(f"**Rank {res.rank}**: {match_info['start_date']} (distance: {res.distance:.2f})")
+        st.write(
+            f"**Rank {res['rank']}**: {match_info['start_date']} "
+            f"(distance: {res['distance']:.2f})"
+        )
 
         fig_match = make_subplots(
             rows=2,
@@ -263,9 +269,33 @@ with st.sidebar:
     left_margin = st.slider("Left margin (trading days)", 0, 30, 5)
     right_margin = st.slider("Right margin (trading days)", 0, 30, 5)
 
-raw_df = pd.read_csv(RAW_DATA_PATH, index_col=0, parse_dates=True)
-metadata_df = pd.read_csv(METADATA_PATH)
+if st.button("Search"):
+    with st.spinner("Searching for similar patterns..."):
+        try:
+            results = search_request(
+                ticker="SPY",
+                window_size=30,
+                date=start_date,
+                top_k=num_results,
+            )
+        except Exception as e:
+            st.error(f"Search failed: {e}")
+            st.stop()
 
-query_idx = find_query_index(start_date, metadata_df)
-results = search_patterns(query_idx, INDEX_PATH, num_results)
-create_chart(query_idx, results, metadata_df, raw_df, left_margin, right_margin)
+    if not results:
+        st.warning("No similar patterns found.")
+        st.stop()
+
+    # Get paths from first result
+    metadata_path = results[0]["metadata_path"]
+    raw_data_path = results[0]["raw_data_path"]
+
+    try:
+        metadata_df = pd.read_csv(metadata_path)
+        raw_df = pd.read_csv(raw_data_path, index_col=0, parse_dates=True)
+    except Exception as e:
+        st.error(f"Failed to load data: {e}")
+        st.stop()
+
+    query_idx = find_query_index(start_date, metadata_df)
+    create_chart(query_idx, results, metadata_df, raw_df, left_margin, right_margin)

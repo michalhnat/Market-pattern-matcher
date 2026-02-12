@@ -26,6 +26,10 @@ def search_patterns(
     searcher = PatternSearcher(config=config)
     searcher.load_resources(index_path=metadata.index_path)
 
+    # Add paths to metadata dataframe
+    searcher.metadata_df["metadata_path"] = metadata.metadata_csv_path
+    searcher.metadata_df["raw_data_path"] = f"data/raw/{ticker}.csv"
+
     query_idx = find_query_index(date, searcher.metadata_df)
 
     return searcher.search(query_index=query_idx, top_k=top_k, include_self=False)
