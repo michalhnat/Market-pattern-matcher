@@ -1,16 +1,4 @@
-from datetime import datetime
-
 from pydantic import BaseModel, Field
-
-
-class SearchRequest(BaseModel):
-    start_date: datetime = Field(..., description="Start date of the query window")
-    left_margin_days: int | None = Field(
-        0, description="Number of days to include before the query window"
-    )
-    right_margin_days: int | None = Field(
-        0, description="Number of days to include after the query window"
-    )
 
 
 class MatchResult(BaseModel):
