@@ -2,11 +2,11 @@ import json
 import logging
 from pathlib import Path
 
-import faiss
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+import faiss
 from config import Config
 from src.core.dataset import MarketDataset
 from src.core.model import MarketAutoencoder
@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 class IndexBuilder:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config) -> None:
         self.config = config
         self.device = self._resolve_device()
 
-    def _resolve_device(self):
+    def _resolve_device(self) -> torch.device:
         if self.config.device == "auto":
             if torch.backends.mps.is_available():
                 return torch.device("mps")
@@ -28,7 +28,7 @@ class IndexBuilder:
             return torch.device("cpu")
         return torch.device(self.config.device)
 
-    def build_index(self, model_path: Path = None):
+    def build_index(self, model_path: Path | None = None) -> None:
         ckpt_path = model_path or self.config.model_path
         data_path = self.config.data_dir / "data.npy"
         meta_csv_path = self.config.data_dir / "metadata.csv"
@@ -40,17 +40,16 @@ class IndexBuilder:
 
         logger.info(f"Loading model from {ckpt_path}...")
         checkpoint = torch.load(ckpt_path, map_location=self.device)
-        
+
         saved_config = checkpoint.get("config", {})
         window_size = saved_config.get("window_size", self.config.window_size)
         embedding_dim = saved_config.get("embedding_dim", self.config.embedding_dim)
-        in_channels = saved_config.get("in_channels", self.config.in_channels)
 
         model = MarketAutoencoder(
-            input_len=window_size, 
+            input_len=window_size,
             embedding_dim=embedding_dim
         ).to(self.device)
-        
+
         model.load_state_dict(checkpoint["model_state_dict"])
         model.eval()
 
@@ -68,7 +67,7 @@ class IndexBuilder:
 
         embeddings_matrix = np.concatenate(embeddings, axis=0).astype(np.float32)
         num_vectors, dim = embeddings_matrix.shape
-        
+
         if dim != embedding_dim:
             logger.warning(f"Extracted embedding dim {dim} != config {embedding_dim}")
 
@@ -78,7 +77,7 @@ class IndexBuilder:
 
         index_path = self.config.index_path
         index_meta_path = self.config.index_meta_path
-        
+
         index_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Saving index to {index_path}...")
@@ -93,9 +92,9 @@ class IndexBuilder:
             "data_path": str(data_path),
             "metadata_csv_path": str(meta_csv_path),
         }
-        
+
         with open(index_meta_path, "w") as f:
             json.dump(meta_info, f, indent=2)
-            
+
         logger.info(f"Saved index metadata to {index_meta_path}")
         return index_path
