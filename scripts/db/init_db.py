@@ -5,6 +5,7 @@ from sqlalchemy import (
     Index,
     Numeric,
     String,
+    text,
 )
 from sqlalchemy.orm import declarative_base
 
@@ -33,6 +34,23 @@ class MarketData(Base):
 def init_database() -> None:
     engine = get_engine(echo=True)
     Base.metadata.create_all(engine)
+
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb"))
+        connection.execute(
+            text(
+                """
+                SELECT create_hypertable(
+                    'market_data',
+                    'timestamp',
+                    partitioning_column => 'ticker',
+                    number_partitions => 4,
+                    if_not_exists => TRUE,
+                    migrate_data => TRUE
+                )
+                """
+            )
+        )
 
 
 if __name__ == "__main__":

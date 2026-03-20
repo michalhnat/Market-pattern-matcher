@@ -4,8 +4,8 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy.dialects.postgresql import insert
 
-from scripts.db.db import get_engine, get_session
-from scripts.db.init_db import Base, MarketData
+from scripts.db.db import get_session
+from scripts.db.init_db import MarketData, init_database
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +64,7 @@ def sync_csv(csv_path: Path, ticker: str, interval: str) -> None:
 
 
 if __name__ == "__main__":
-    engine = get_engine(echo=True)
-    Base.metadata.create_all(engine)
+    init_database()
 
     data_dir = Path("data/raw")
     for csv_file in data_dir.glob("*.csv"):

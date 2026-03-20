@@ -11,8 +11,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from config import INTERVALS, Config
-from scripts.db.db import get_engine, get_session
-from scripts.db.init_db import Base, MarketData
+from scripts.db.db import get_session
+from scripts.db.init_db import MarketData, init_database
 from scripts.db.sync_db import sync_csv
 from src.core.index import IndexBuilder
 from src.core.train import Trainer
@@ -151,8 +151,7 @@ def process_single_interval(
     builder = IndexBuilder(config)
     builder.build_index(model_path=config.model_path)
 
-    engine = get_engine()
-    Base.metadata.create_all(engine)
+    init_database()
     sync_csv(csv_path, ticker, interval)
 
     return f"{interval}"

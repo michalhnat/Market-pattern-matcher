@@ -1,18 +1,17 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from scripts.db.db import get_engine
-from scripts.db.init_db import Base
+from scripts.db.init_db import init_database
 from src.api.routers.list import router as list_router
 from src.api.routers.search import router as search_router
 from src.api.routers.ticker import router as ticker_router
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> None:
-    engine = get_engine()
-    Base.metadata.create_all(engine)
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    init_database()
     yield
 
 

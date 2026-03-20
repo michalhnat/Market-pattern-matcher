@@ -10,8 +10,7 @@ import pandas as pd
 import yfinance as yf
 
 from config import INTERVALS, Config
-from scripts.db.db import get_engine
-from scripts.db.init_db import Base
+from scripts.db.init_db import init_database
 from scripts.db.sync_db import sync_csv
 from src.core.index import IndexBuilder
 from src.core.search import PatternSearcher
@@ -272,8 +271,7 @@ def sync_ticker_to_db(csv_path: Path, ticker: str, interval: str) -> None:
     logger.info(f"Syncing {ticker} @ {interval} to database...")
 
     try:
-        engine = get_engine()
-        Base.metadata.create_all(engine)
+        init_database()
         sync_csv(csv_path, ticker, interval)
     except Exception as e:
         logger.warning(f"Database sync failed: {e}")
